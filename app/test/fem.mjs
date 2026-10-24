@@ -288,8 +288,11 @@ try {
   const wIds = await ev(() => window.__t.viewer.partList().filter((p) => p.name === 'Fuss' || p.name === 'Wand').map((p) => p.id));
   await ev((ids) => window.__t.viewer.setView('iso', ids), wIds);
   await sleep(400);
-  const pxAt = async (p) => ev((q) => window.__t.viewer.pixels(q.x, q.y), await ev((q) => window.__t.viewer.screenAt(q), p));
-  const outside = await pxAt([30, 110, 8]);
+  const pxAt = async (p, half = 6) => ev(([q, h]) => window.__t.viewer.pixels(q.x, q.y, h), [await ev((q) => window.__t.viewer.screenAt(q), p), half]);
+  // Kleines Fenster: Der Punkt liegt nur 3 mm über der Kante zum Fuß (höher ginge der Blick nicht mehr durch die Berührfläche),
+  // ein Fenster von 13 Pixeln streifte je nach Skalierung des Bildschirms deren dunkle Linie. 7 Pixel fassen noch einen
+  // Strich der Schraffur (Abstand etwa 7 Pixel)
+  const outside = await pxAt([30, 110, 8], 3);
   const cutFace = await pxAt([27.5, 100, 25]);
   const layers = await ev(() => window.__t.viewer.layerState());
   check('Schnitt im Ergebnis: Fuß und Wand mit Deckel, Schraffur nur auf der Schnittfläche, nicht hinter der Berührfläche', outside.span < 12
