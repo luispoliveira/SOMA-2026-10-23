@@ -6,6 +6,10 @@ the version is bumped.
 
 ## [Unreleased]
 
+### Fixed
+
+- Saving could crash with "A JavaScript error occurred in the main process: file data stream has unexpected number of bytes" when a file of the model changed while it was being packed, for example by a build or the agent. No build starts while the model is being saved or exported, a file that changes anyway is packed a second time, and if it keeps changing, saving reports it instead of crashing.
+
 ## [0.10.2] - 2026-10-24
 
 ### Added
