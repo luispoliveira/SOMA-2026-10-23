@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import yauzl from 'yauzl';
 import yazl from 'yazl';
@@ -45,19 +46,41 @@ function collect(root: string, withGit: boolean): string[] {
 /** Packt den Projektordner (inklusive .git) atomar in `zipPath`: erst eine .part-Datei, dann umbenennen. */
 /** `withGit`: false für einen geöffneten Ordner (Ordner-Modus): Sein Repository gehört dem Nutzer und geht nicht mit. */
 export async function saveProjectZip(dir: string, zipPath: string, info: ZipInfo, withGit = true): Promise<{ files: number; bytes: number }> {
+  fs.mkdirSync(path.dirname(zipPath), { recursive: true });
+  // Ändert sich eine Datei beim Packen (Agent, Build, OneDrive), ist sie meist beim zweiten Versuch wieder still
+  try { return await packOnce(dir, zipPath, info, withGit); }
+  catch (e) {
+    if (!(e instanceof FileChangedError)) throw e;
+    console.warn(`[zip] ${e.cause instanceof Error ? e.cause.message : String(e.cause)}, packing again`);
+    return await packOnce(dir, zipPath, info, withGit);
+  }
+}
+
+/** Eine Datei hat sich zwischen Auflisten und Lesen geändert oder ist verschwunden. */
+class FileChangedError extends Error {
+  constructor(cause: unknown) { super('A file of the model changed while it was being saved. Please save again.', { cause }); }
+}
+
+async function packOnce(dir: string, zipPath: string, info: ZipInfo, withGit: boolean): Promise<{ files: number; bytes: number }> {
   const files = collect(dir, withGit);
   const zip = new yazl.ZipFile();
+  // yazl merkt sich die Größe beim addFile und meldet eine Abweichung beim Lesen als 'error' am ZipFile, nicht am Stream.
+  // Ohne Listener wäre das eine Uncaught Exception im Main-Prozess, und der Stream endete nie (Speichern hinge).
+  let failure: FileChangedError | null = null;
+  zip.on('error', (e: unknown) => { failure ??= new FileChangedError(e); (zip.outputStream as Readable).destroy(failure); });
   for (const rel of files) if (rel !== ZIP_INFO_PATH) zip.addFile(path.join(dir, rel), rel, { compress: !STORED.test(rel) });
   zip.addBuffer(Buffer.from(JSON.stringify(info, null, 2)), ZIP_INFO_PATH);
   zip.end();
   const tmp = zipPath + '.part';
-  fs.mkdirSync(path.dirname(zipPath), { recursive: true });
+  const out = fs.createWriteStream(tmp);
   try {
-    await pipeline(zip.outputStream, fs.createWriteStream(tmp));
+    await pipeline(zip.outputStream, out);
     fs.renameSync(tmp, zipPath);
   } catch (e) {
+    // Unter Windows lässt sich die Datei erst löschen, wenn der Stream sie geschlossen hat
+    if (!out.closed) await new Promise<void>((r) => out.once('close', () => r()));
     fs.rmSync(tmp, { force: true });
-    throw e;
+    throw failure ?? e;
   }
   return { files: files.length + 1, bytes: fs.statSync(zipPath).size };
 }

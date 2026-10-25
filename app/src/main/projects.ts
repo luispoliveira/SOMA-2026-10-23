@@ -485,11 +485,13 @@ export class ProjectController {
       if (c !== 0) return { ok: false, files: [], cancelled: true };
     }
     const warnings: string[] = [];
+    let release: (() => void) | undefined;
     try {
-      // Wie beim Speichern: aktuelles Ergebnis, Verlauf gepackt
+      // Wie beim Speichern: aktuelles Ergebnis, Verlauf gepackt, kein Build während des Packens
       if (!s.builds.busy && buildIsStale(s.dir)) s.builds.start('before exporting');
       await s.builds.whenIdle();
       if (s.builds.status.state === 'error') warnings.push('The last build failed. The ZIP contains the last successful version of output/model.step.');
+      release = s.builds.hold();
       let dirty = false;
       // Im Ordner-Modus geht das Repository des Nutzers nicht mit und wird nicht umgepackt
       if (!s.folder && await s.git.isRepo()) {
@@ -502,6 +504,8 @@ export class ProjectController {
       return { ok: true, files: [dest], target: dest, ...(warnings.length ? { warnings } : {}) };
     } catch (e) {
       return { ok: false, files: [], error: `Export failed: ${e instanceof Error ? e.message : String(e)}` };
+    } finally {
+      release?.();
     }
   }
 
@@ -537,11 +541,14 @@ export class ProjectController {
       renameProject(s.id, path.basename(zipPath, path.extname(zipPath))); // der Modellname folgt dem Dateinamen
     }
     const warnings: string[] = [];
+    let release: (() => void) | undefined;
     try {
       // Die Datei soll das aktuelle Ergebnis enthalten: laufenden Build abwarten, veralteten vorher nachholen.
       if (!s.builds.busy && buildIsStale(s.dir)) s.builds.start('before saving');
       await s.builds.whenIdle();
       if (s.builds.status.state === 'error') warnings.push('The last build failed. The file contains the last successful version of output/model.step.');
+      // Ab hier kein neuer Build mehr, bis die Datei geschrieben ist: Er schriebe output/ und .soma/ mitten ins Packen
+      release = s.builds.hold();
 
       stampAppVersion(s.id); // mit welcher Version zuletzt gespeichert (E68), steht so auch im Snapshot
       let snapshot: string | null = null;
@@ -563,6 +570,8 @@ export class ProjectController {
       return { cancelled: false, zipPath, snapshot, files: r.files, bytes: r.bytes, warnings };
     } catch (e) {
       return { cancelled: false, error: `Saving failed: ${e instanceof Error ? e.message : String(e)}` };
+    } finally {
+      release?.();
     }
   }
 

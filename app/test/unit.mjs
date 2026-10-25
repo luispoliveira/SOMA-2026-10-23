@@ -419,6 +419,26 @@ try {
     check('ZIP: ohne .soma/results, .soma/anim, .soma/drawings und renders/ (E75, E76), mit Modell', inZip['model.py'] === 'x = 2\n' && inZip['.soma/results/thickness.glb'] === null
       && inZip['.soma/anim/deckel.glb'] === null && inZip['renders/view-iso.png'] === null && inZip['.soma/drawings/Halter.png'] === null, JSON.stringify(inZip));
 
+    // Eine Datei ändert sich beim Packen (Build, Agent): yazl kennt ihre Größe vom addFile und meldet die Abweichung erst
+    // beim Lesen. Früher eine Uncaught Exception im Main-Prozess, und das Speichern hing. Die große Datei vorn hält das
+    // Packen lange genug auf, dass die kleine sich zwischen Größe und Lesen ändert.
+    const busy = path.join(tmp, 'aenderung');
+    fs.mkdirSync(busy);
+    fs.writeFileSync(path.join(busy, 'a-gross.bin'), Buffer.alloc(40 * 1024 * 1024, 7));
+    fs.writeFileSync(path.join(busy, 'z-log.txt'), 'start\n');
+    const busyZip = path.join(tmp, 'aenderung.soma');
+    const once = setTimeout(() => fs.appendFileSync(path.join(busy, 'z-log.txt'), 'einmal\n'), 15);
+    const r1 = await saveProjectZip(busy, busyZip, { savedAt: '', head: null, id: 'x', name: 'x' }).catch((e) => e);
+    clearTimeout(once);
+    const t1 = r1 instanceof Error ? null : await readZipTexts(busyZip, ['z-log.txt']);
+    check('ZIP: Datei ändert sich einmal beim Packen, der zweite Versuch gelingt', t1?.['z-log.txt'] === 'start\neinmal\n', String(r1?.message ?? JSON.stringify(t1)));
+    fs.rmSync(busyZip, { force: true });
+    const always = setInterval(() => fs.appendFileSync(path.join(busy, 'z-log.txt'), 'immer\n'), 5);
+    const r2 = await saveProjectZip(busy, busyZip, { savedAt: '', head: null, id: 'x', name: 'x' }).catch((e) => e);
+    clearInterval(always);
+    check('ZIP: Datei ändert sich ständig, verständlicher Fehler statt Absturz, keine .part und keine Datei', r2 instanceof Error
+      && /changed while it was being saved/.test(r2.message) && !fs.existsSync(busyZip + '.part') && !fs.existsSync(busyZip), String(r2?.message ?? r2));
+
     // Packen vor der ZIP (E75): Verlauf und Hashes bleiben. Unerreichbares geht nicht verloren: der Blob, den addAll oben aus
     // dem Index genommen hat (lose), und ein Objekt, das nur in einem älteren Pack liegt (ohne --keep-unreachable weg).
     const loose = async () => Number(/^count: (\d+)$/m.exec((await repo.run(['count-objects', '-v'])).out)?.[1] ?? -1);

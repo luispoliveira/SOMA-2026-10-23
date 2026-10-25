@@ -39,6 +39,9 @@ export class BuildManager extends EventEmitter {
   private installing: string[] | null = null;
   private afterInstall = false;
   private packageError: string | null = null;
+  /** Speichern packt gerade den Ordner (hold): Builds warten, danach läuft genau einer. */
+  private holds = 0;
+  private afterHold = false;
   /**
    * Parameter des Modells aus dem letzten Build, der sie kannte (null: noch keiner). Scheitert ein Build, bevor der Code
    * seine Parameter anlegt, bleibt die Liste des vorigen stehen (`paramsStale`): Das Panel soll gerade dann bedienbar
@@ -94,6 +97,11 @@ export class BuildManager extends EventEmitter {
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     if (this.installing) { // ohne die Pakete scheiterte der Build nur am Import
       this.afterInstall = true;
+      this.setStatus({ ...this.status, queued: true });
+      return;
+    }
+    if (this.holds) {
+      this.afterHold = true;
       this.setStatus({ ...this.status, queued: true });
       return;
     }
@@ -213,6 +221,23 @@ export class BuildManager extends EventEmitter {
       const t = setTimeout(done, timeoutMs);
       this.on('status', onStatus);
     });
+  }
+
+  /**
+   * Builds zurückhalten, solange das Speichern den Ordner packt: Ein Build schreibt output/ und .soma/ neu, und eine Datei,
+   * die sich beim Packen ändert, macht die ZIP unbrauchbar. Ein laufender Build läuft weiter (vorher whenIdle abwarten).
+   * Gibt die Freigabe zurück, danach baut er nach, falls inzwischen jemand bauen wollte.
+   */
+  hold(): () => void {
+    this.holds++;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      if (--this.holds > 0 || this.disposed || !this.afterHold) return;
+      this.afterHold = false;
+      this.start('change during saving');
+    };
   }
 
   cancel(): void {
