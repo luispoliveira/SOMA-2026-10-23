@@ -2,7 +2,7 @@
 
 **Solid Object Modeling with Agents.** A desktop app for designing parametric 3D models together with a coding agent.
 
-**[somacad.app](https://somacad.app)** · [Download](https://somacad.app/download/) · [Changelog](CHANGELOG.md)
+**[somacad.app](https://somacad.app)** · [Download](https://somacad.app/download/) · [Changelog](CHANGELOG.md) · [简体中文 (AI translation)](README.zh-CN.md)
 
 https://github.com/user-attachments/assets/3294d1e4-1f06-477d-9770-c91f3470330d
 

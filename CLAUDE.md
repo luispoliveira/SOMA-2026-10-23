@@ -42,7 +42,7 @@ Details in `app/README.md`.
 
 **`docs/`** `images/` for the README, `phase0-ergebnisse.md` (finished prototype, code in the Git history up to `v0.5.0`).
 
-**Root:** `README.md`, `CHANGELOG.md`, `LICENSE`, `MODEL-EXCEPTION.md`, `THIRD_PARTY_NOTICES.md` (licenses of bundled components, shipped with the packages), `SECURITY.md`, `CONTRIBUTING.md` (issues only, no pull requests for now). Issue templates in `.github/ISSUE_TEMPLATE/`.
+**Root:** `README.md`, `README.zh-CN.md` (AI translation, linked at the top of the README), `CHANGELOG.md`, `LICENSE`, `MODEL-EXCEPTION.md`, `THIRD_PARTY_NOTICES.md` (licenses of bundled components, shipped with the packages), `SECURITY.md`, `CONTRIBUTING.md` (issues only, no pull requests for now). Issue templates in `.github/ISSUE_TEMPLATE/`.
 
 ## Commands
 
@@ -81,7 +81,7 @@ npm run dist                         # installation package for this system, run
 - **English:** everything users, contributors or the agent see: interface, messages, dialogs, output and errors of `soma`, docstrings of the public API, skills including their header, handover notes to the agent, `AGENTS.md` and `model.py` of the template. Also all public documents in the repo: `README.md`, `CHANGELOG.md`, this `CLAUDE.md`, `THIRD_PARTY_NOTICES.md`, `SECURITY.md`, issue templates, release texts. Numbers with a decimal point.
 - **German:** internal docs (`app/README.md`, `docs/phase0-ergebnisse.md`, the local working documents), code comments, commit messages, test descriptions.
 - What the app recognizes from older projects (commit subjects, trailers) it also recognizes in the old German form.
-- `README.md` in the root is the start page on GitHub (E70): plain and short, no emojis, images in `docs/images/`.
+- `README.md` in the root is the start page on GitHub (E70): plain and short, no emojis, images in `docs/images/`. `README.zh-CN.md` is an AI translation of it, marked as such at the top: when the README changes, update the translation too.
 
 ### Interface
 
